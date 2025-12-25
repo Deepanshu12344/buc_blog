@@ -17,7 +17,7 @@ export default function Signup() {
     setLoading(true);
 
     try {
-      await signUp(email, password, fullName);
+      await signUp(fullName, email, password);
       navigate('/dashboard');
     } catch (err) {
       setError('Failed to create account. Please try again.');

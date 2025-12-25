@@ -1,48 +1,56 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase, Post } from '../lib/supabase';
+import { blogApi } from '../lib/api';
 import {
   Home,
   Bookmark,
   User,
   BarChart2,
   FileText,
-  Users,
   Search,
   Bell,
   PenSquare,
   Menu,
-  Star,
   MessageCircle,
   MoreHorizontal,
+  Heart,
 } from 'lucide-react';
 
+type Blog = {
+  _id: string;
+  title: string;
+  content: string;
+  author: {
+    _id: string;
+    firstname: string;
+    lastname: string;
+    email: string;
+  };
+  likes: number;
+  comments: any[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export default function Dashboard() {
-  const { user, profile, signOut } = useAuth();
-  const [posts, setPosts] = useState<Post[]>([]);
+  const { user, signOut } = useAuth();
+  const [blogs, setBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'for-you' | 'featured'>('for-you');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchPosts();
+    fetchBlogs();
   }, []);
 
-  const fetchPosts = async () => {
+  const fetchBlogs = async () => {
     try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select('*, profiles(*)')
-        .eq('published', true)
-        .order('published_at', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-      setPosts(data || []);
+      const data = await blogApi.getAll();
+      setBlogs(data.blogs || []);
     } catch (error) {
-      console.error('Error fetching posts:', error);
+      console.error('Error fetching blogs:', error);
     } finally {
       setLoading(false);
     }
@@ -61,8 +69,13 @@ export default function Dashboard() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const handleSignOut = async () => {
-    await signOut();
+  const getExcerpt = (content: string, maxLength: number = 150) => {
+    if (content.length <= maxLength) return content;
+    return content.substring(0, maxLength) + '...';
+  };
+
+  const handleSignOut = () => {
+    signOut();
     navigate('/');
   };
 
@@ -102,7 +115,7 @@ export default function Dashboard() {
               <Bell className="w-6 h-6 text-gray-600" />
             </button>
             <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium">
-              {profile?.full_name?.[0] || profile?.email?.[0] || 'U'}
+              {user?.fullname?.[0] || user?.email?.[0] || 'U'}
             </div>
           </div>
         </div>
@@ -152,17 +165,6 @@ export default function Dashboard() {
             </Link>
           </nav>
 
-          <div className="mt-8 pt-8 border-t border-gray-200">
-            <div className="flex items-center gap-2 mb-4">
-              <Users className="w-4 h-4 text-gray-600" />
-              <span className="text-sm text-gray-600">Following</span>
-            </div>
-            <button className="text-sm text-green-600 hover:text-green-700">
-              Find writers and publications to follow
-            </button>
-            <p className="text-xs text-gray-500 mt-2">See suggestions</p>
-          </div>
-
           <button
             onClick={handleSignOut}
             className="mt-8 text-sm text-gray-600 hover:text-gray-900"
@@ -200,7 +202,7 @@ export default function Dashboard() {
               <div className="text-center py-12">
                 <p className="text-gray-500">Loading posts...</p>
               </div>
-            ) : posts.length === 0 ? (
+            ) : blogs.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-gray-500 mb-4">No posts yet</p>
                 <Link
@@ -213,14 +215,16 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-8">
-                {posts.map((post) => (
-                  <article key={post.id} className="group">
+                {blogs.map((blog) => (
+                  <article key={blog._id} className="group">
                     <div className="flex items-start gap-3 mb-3">
-                      <div className="w-6 h-6 bg-gray-300 rounded-full flex-shrink-0"></div>
+                      <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-medium">
+                        {blog.author?.firstname?.[0] || 'A'}
+                      </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 text-sm">
                           <span className="font-medium">
-                            {post.profiles?.full_name || 'Anonymous'}
+                            {blog.author?.firstname} {blog.author?.lastname}
                           </span>
                         </div>
                       </div>
@@ -228,25 +232,25 @@ export default function Dashboard() {
 
                     <div className="flex gap-8">
                       <div className="flex-1">
-                        <h2 className="text-xl font-bold text-gray-900 mb-2 group-hover:opacity-70 cursor-pointer line-clamp-2">
-                          {post.title}
-                        </h2>
+                        <Link to={`/post/${blog._id}`}>
+                          <h2 className="text-xl font-bold text-gray-900 mb-2 group-hover:opacity-70 cursor-pointer line-clamp-2">
+                            {blog.title}
+                          </h2>
+                        </Link>
                         <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                          {post.subtitle}
+                          {getExcerpt(blog.content)}
                         </p>
 
                         <div className="flex items-center gap-4 text-xs text-gray-500">
+                          <span>{formatDate(blog.createdAt)}</span>
                           <div className="flex items-center gap-1">
-                            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                            <span>
-                              {formatDate(post.published_at || post.created_at)}
-                            </span>
+                            <Heart className="w-4 h-4" />
+                            <span>{blog.likes}</span>
                           </div>
                           <div className="flex items-center gap-1">
                             <MessageCircle className="w-4 h-4" />
-                            <span>{Math.floor(Math.random() * 100)}K</span>
+                            <span>{blog.comments?.length || 0}</span>
                           </div>
-                          <span>{post.reading_time} min read</span>
                           <button className="ml-auto p-1 hover:bg-gray-100 rounded">
                             <Bookmark className="w-4 h-4" />
                           </button>
@@ -255,16 +259,6 @@ export default function Dashboard() {
                           </button>
                         </div>
                       </div>
-
-                      {post.cover_image && (
-                        <div className="w-32 h-24 bg-gray-200 rounded flex-shrink-0">
-                          <img
-                            src={post.cover_image}
-                            alt=""
-                            className="w-full h-full object-cover rounded"
-                          />
-                        </div>
-                      )}
                     </div>
                   </article>
                 ))}
@@ -274,57 +268,18 @@ export default function Dashboard() {
         </main>
 
         <aside className="hidden xl:block w-80 px-6 py-8 sticky top-16 self-start border-l border-gray-200">
-          <h3 className="text-sm font-semibold mb-4">Staff Picks</h3>
-          <div className="space-y-4">
-            {[
-              {
-                author: 'Barack Obama',
-                title: 'Here Are My Favorite Books, Movies, and Music of 2025',
-                date: '2d ago',
-              },
-              {
-                author: 'Constantin Patrascu',
-                title:
-                  "I'm a Psychologist and I Let My Kids Have Screen Time: Here's Why the Research Might Surprise You",
-                date: 'Dec 13',
-              },
-              {
-                author: 'John Battelle',
-                title: "You Can't Save the Web With Biz Dev Deals",
-                date: 'Dec 13',
-              },
-            ].map((item, index) => (
-              <div key={index} className="flex gap-3">
-                <div className="w-6 h-6 bg-gray-300 rounded-full flex-shrink-0"></div>
-                <div className="flex-1">
-                  <p className="text-xs font-medium mb-1">{item.author}</p>
-                  <h4 className="text-sm font-semibold mb-1 line-clamp-2">
-                    {item.title}
-                  </h4>
-                  <p className="text-xs text-gray-500">{item.date}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <button className="text-sm text-green-600 hover:text-green-700 mt-4">
-            See the full list
-          </button>
-
-          <div className="mt-8 pt-8 border-t border-gray-200">
-            <h3 className="text-sm font-semibold mb-4">Recommended topics</h3>
-            <div className="flex flex-wrap gap-2">
-              {['Self Improvement', 'Cryptocurrency', 'Technology', 'Writing', 'AI'].map(
-                (topic) => (
-                  <button
-                    key={topic}
-                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-full text-sm"
-                  >
-                    {topic}
-                  </button>
-                )
-              )}
-            </div>
+          <h3 className="text-sm font-semibold mb-4">Recommended topics</h3>
+          <div className="flex flex-wrap gap-2">
+            {['Programming', 'Technology', 'Writing', 'AI', 'Web Development'].map(
+              (topic) => (
+                <button
+                  key={topic}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-full text-sm"
+                >
+                  {topic}
+                </button>
+              )
+            )}
           </div>
         </aside>
       </div>
