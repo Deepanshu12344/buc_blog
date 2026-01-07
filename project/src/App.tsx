@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Editor from './pages/Editor';
+import AuthCallback from './pages/AuthCallback'; // Add this import
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -63,6 +64,8 @@ function App() {
               </PublicRoute>
             }
           />
+          {/* Add this route for Google OAuth callback */}
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route
             path="/dashboard"
             element={

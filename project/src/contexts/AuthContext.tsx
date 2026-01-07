@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export type User = {
   _id: string;
@@ -12,6 +13,7 @@ type AuthContextType = {
   loading: boolean;
   signUp: (fullname: string, email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => void;
   signOut: () => void;
 };
 
@@ -64,9 +66,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(error || 'Sign up failed');
       }
 
-      const data = await response.json();
-      
-      // After registration, automatically log in
       await signIn(email, password);
     } catch (error) {
       console.error('Sign up error:', error);
@@ -100,6 +99,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const signInWithGoogle = () => {
+    // Redirect to backend Google OAuth route
+    window.location.href = `${API_URL}/auth/google`;
+  };
+
   const signOut = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -113,6 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         signUp,
         signIn,
+        signInWithGoogle,
         signOut,
       }}
     >
